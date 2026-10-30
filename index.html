@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Modern Minimalist Coastal Villa &amp; Penthouse</title>
+  <meta name="description" content="Interactive 360° Virtual Tour">
+
+  <!-- Asset URL Normalization & Global Error Diagnostics -->
+  <script>
+    // 1. Global asset resolver that safely resolves base path without rewriting browser URL or using regexes
+    window.getAbsoluteAssetUrl = function(relativePath) {
+      if (!relativePath) return '';
+      var str = String(relativePath).trim();
+
+      // Return immediately if already an absolute URL or data URI
+      if (
+        str.indexOf('http://') === 0 ||
+        str.indexOf('https://') === 0 ||
+        str.indexOf('//') === 0 ||
+        str.indexOf('data:') === 0 ||
+        str.indexOf('blob:') === 0
+      ) {
+        return str;
+      }
+
+      // Strip leading './' or '/'
+      if (str.indexOf('./') === 0) {
+        str = str.substring(2);
+      } else if (str.indexOf('/') === 0) {
+        str = str.substring(1);
+      }
+
+      // Determine the directory base of the current page
+      var href = window.location.href.split('#')[0].split('?')[0];
+      var lastSlash = href.lastIndexOf('/');
+      var lastSegment = lastSlash >= 0 ? href.substring(lastSlash + 1) : href;
+
+      var baseDir = '';
+      if (lastSegment.indexOf('.') !== -1) {
+        // Filename in path (e.g. /Tours/test2/index.html) -> base is /Tours/test2/
+        baseDir = href.substring(0, lastSlash + 1);
+      } else if (href.charAt(href.length - 1) === '/') {
+        // Ends with slash (e.g. /Tours/test2/) -> base is /Tours/test2/
+        baseDir = href;
+      } else {
+        // No trailing slash & no extension (e.g. /Tours/test2) -> base is /Tours/test2/
+        baseDir = href + '/';
+      }
+
+      return baseDir + str;
+    };
+
+    // 2. Global HTML escape utility to safely render room titles and URLs
+    window.escapeHtml = function(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    // 3. Global error reporter to prevent silent failure or frozen loading state
+    window.showViewerErrorUI = function(title, message, details) {
+      console.error('[Virtual Tour Error]', title, message, details || '');
+      var banner = document.getElementById('viewer-error-banner');
+      if (banner) {
+        banner.style.display = 'flex';
+        var titleEl = document.getElementById('viewer-error-title');
+        if (titleEl) titleEl.textContent = title || 'Virtual Tour Notice';
+        var msgEl = document.getElementById('viewer-error-msg');
+        if (msgEl) msgEl.textContent = message || 'An error occurred while loading the tour.';
+        var detailsEl = document.getElementById('viewer-error-details');
+        if (detailsEl) {
+          if (details) {
+            detailsEl.textContent = details;
+            detailsEl.style.display = 'block';
+          } else {
+            detailsEl.style.display = 'none';
+          }
+        }
+      }
+      var overlay = document.getElementById('transition-overlay');
+      if (overlay) overlay.classList.remove('active');
+    };
+
+    window.hideViewerErrorUI = function() {
+      var banner = document.getElementById('viewer-error-banner');
+      if (banner) banner.style.display = 'none';
+    };
+
+    window.addEventListener('error', function(e) {
+      console.error('[Virtual Tour Window Error]', e.error || e.message || e);
+      var msg = e.message || (e.target && e.target.src ? 'Failed to load script or asset: ' + e.target.src : 'Error initializing tour viewer');
+      window.showViewerErrorUI('Initialization Error', msg, e.filename ? (e.filename + ':' + e.lineno) : undefined);
+    });
+
+    window.addEventListener('unhandledrejection', function(e) {
+      console.error('[Virtual Tour Unhandled Rejection]', e.reason);
+      var reasonMsg = (e.reason && (e.reason.message || e.reason.toString())) || 'Unhandled asynchronous error';
+      window.showViewerErrorUI('Initialization Error', reasonMsg);
+    });
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050505;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #fff;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    #viewport {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      cursor: grab;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      overflow: hidden;
+    }
+    #viewport:active { cursor: grabbing; }
+
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      touch-action: none;
+    }
+
+    @media (max-width: 640px) {
+      header {
+        padding: 10px 14px;
+      }
+      .scene-meta {
+        font-size: 11px;
+      }
+      #current-scene-name {
+        max-width: 140px;
+      }
+      footer {
+        bottom: 12px;
+        padding: 4px 8px;
+        gap: 6px;
+      }
+      .dock-btn {
+        width: 38px;
+        height: 38px;
+      }
+      #rooms-drawer {
+        max-width: 85%;
+      }
+    }
+
+    /* Glassmorphism UI Components */
+    .glass {
+      background: rgba(18, 18, 24, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .glass-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .glass-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    .glass-btn:active { transform: translateY(0); }
+
+    /* Header Bar */
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+    .header-content {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      flex-shrink: 0;
+    }
+    .scene-meta {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #current-scene-name {
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+    .meta-separator {
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 10px;
+    }
+    #scene-counter {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 11px;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+    .header-actions {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Floating Bottom Dock */
+    footer {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      padding: 6px 10px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dock-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .dock-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .dock-btn.active {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    /* Popovers & Drawers */
+    #brightness-popover {
+      position: absolute;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 14px;
+      border-radius: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      width: 160px;
+      z-index: 25;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+      font-family: monospace;
+      text-transform: uppercase;
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: #6366f1;
+      height: 4px;
+      cursor: pointer;
+    }
+    .reset-btn {
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.4);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-family: monospace;
+      text-align: center;
+      padding: 2px;
+    }
+    .reset-btn:hover { color: #fff; }
+
+    /* Rooms Drawer */
+    #rooms-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-width: 300px;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #rooms-drawer.open { transform: translateX(0); }
+    .drawer-header {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .drawer-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: monospace;
+    }
+    .rooms-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .room-card {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .room-card:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .room-card.active {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.15);
+    }
+    .room-thumb {
+      width: 100%;
+      aspect-ratio: 2 / 1;
+      border-radius: 8px;
+      object-fit: cover;
+      display: block;
+      background: #111;
+    }
+    .room-name {
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Hotspot Dialog Modal */
+    #hotspot-modal {
+      position: absolute;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      width: 90%;
+      max-width: 340px;
+      border-radius: 16px;
+      padding: 16px;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .modal-title { font-size: 13px; font-weight: 700; color: #fff; }
+    .modal-desc { font-size: 11px; line-height: 1.5; color: rgba(255, 255, 255, 0.7); }
+
+    /* Scene Transition Overlay */
+    #transition-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: monospace;
+    }
+    #transition-overlay.active { opacity: 0.85; pointer-events: auto; }
+
+    /* Compass Indicator */
+    .compass-disc {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .compass-needle {
+      position: absolute;
+      width: 3px;
+      height: 16px;
+      background: linear-gradient(to bottom, #ef4444 50%, #fff 50%);
+      border-radius: 2px;
+      transition: transform 0.05s linear;
+    }
+
+    /* Diagnostic Error Dialog */
+    #viewer-error-banner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100;
+      max-width: 460px;
+      width: 90%;
+      padding: 24px;
+      border-radius: 16px;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      background: rgba(18, 12, 16, 0.94);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+      animation: fadeIn 0.25s ease;
+    }
+    #viewer-error-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f87171;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #viewer-error-msg {
+      font-size: 12px;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+    #viewer-error-details {
+      display: none;
+      text-align: left;
+      font-size: 11px;
+      font-family: monospace;
+      color: #94a3b8;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+      max-height: 120px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewport"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="header-content">
+      <div class="scene-meta">
+        <span class="live-dot"></span>
+        <span id="current-scene-name">Initializing...</span>
+        <span class="meta-separator">•</span>
+        <span id="scene-counter">Scene 1 of 2</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="btn-rooms" class="glass-btn">
+        <span id="rooms-btn-label">Rooms (2)</span>
+      </button>
+      <button id="btn-fullscreen" class="glass-btn" title="Toggle Fullscreen">⛶</button>
+    </div>
+  </header>
+
+  <!-- Floating Bottom Dock -->
+  <footer class="glass">
+    <button id="btn-brightness" class="dock-btn" title="Adjust Exposure / Brightness">☀</button>
+    <button id="btn-compass" class="dock-btn" title="Compass Heading">
+      <div class="compass-disc">
+        <div id="compass-needle" class="compass-needle"></div>
+      </div>
+    </button>
+    <button id="btn-rotate" class="dock-btn" title="Toggle Auto-Rotate">↻</button>
+    <div style="width: 1px; height: 18px; background: rgba(255,255,255,0.15); margin: 0 2px;"></div>
+    <button id="btn-zoom-in" class="dock-btn" title="Zoom In">+</button>
+    <button id="btn-zoom-out" class="dock-btn" title="Zoom Out">−</button>
+  </footer>
+
+  <!-- Exposure Slider Popover -->
+  <div id="brightness-popover" class="glass">
+    <div class="slider-row">
+      <span>Exposure</span>
+      <span id="exposure-val">1.0x</span>
+    </div>
+    <input type="range" id="exposure-slider" min="0.4" max="2.2" step="0.02" value="1.0">
+    <button id="btn-reset-exposure" class="reset-btn">Reset to Natural</button>
+  </div>
+
+  <!-- Rooms Drawer -->
+  <div id="rooms-drawer" class="glass">
+    <div class="drawer-header">
+      <span class="drawer-title">Tour Locations</span>
+      <button id="btn-close-drawer" class="glass-btn" style="padding: 4px 8px;">✕</button>
+    </div>
+    <div id="rooms-list" class="rooms-list"></div>
+  </div>
+
+  <!-- Hotspot Info Dialog Modal -->
+  <div id="hotspot-modal" class="glass">
+    <div class="modal-head">
+      <div class="modal-title" id="hotspot-modal-title">Hotspot Information</div>
+      <button id="btn-close-modal" class="glass-btn" style="padding: 2px 6px;">✕</button>
+    </div>
+    <p class="modal-desc" id="hotspot-modal-desc"></p>
+  </div>
+
+  <!-- Scene Transition Overlay -->
+  <div id="transition-overlay">
+    <span id="transition-text">Loading Room...</span>
+  </div>
+
+  <!-- Diagnostic Error Dialog -->
+  <div id="viewer-error-banner" class="glass">
+    <div id="viewer-error-title">⚠️ Notice</div>
+    <div id="viewer-error-msg">Failed to load scene</div>
+    <pre id="viewer-error-details"></pre>
+    <div style="display:flex; justify-content:center; gap:10px; margin-top:8px;">
+      <button id="btn-error-retry" class="glass-btn" style="background:#ef4444; border-color:#ef4444; color:#fff; padding:6px 16px;">Retry</button>
+      <button id="btn-error-dismiss" class="glass-btn" style="padding:6px 16px;">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- Embedded Tour Data (Safe Fallback) -->
+  <script>
+    window.__STATIC_TOUR_DATA__ = {"id":"tour-amalfi-luxury","slug":"amalfi-coastal-villa-tour","title":"Modern Minimalist Coastal Villa & Penthouse","description":"","author":"Architectural Studio","location":"","startingSceneId":"pano-1793390413845-6ur8nwn","config":{"autoRotate":false,"autoRotateSpeed":1.5,"fov":75,"minFov":30,"maxFov":105,"pitchLimits":[-85,85],"mouseSensitivity":1,"touchSensitivity":1,"exposure":1,"toneMapping":"none","showCompass":true,"showHotspots":true,"isInitialized":true},"scenes":[{"id":"pano-1793390413845-6ur8nwn","title":"Bedroom","category":"interior","description":"Custom uploaded 360° equirectangular render.","url":"./panoramas/1-bedroom.jpg","thumbUrl":"./panoramas/1-bedroom.jpg","resolution":{"width":6000,"height":3000},"aspectRatio":2,"fileSize":"7.66 MB","format":"jpg","author":"Custom Creator","location":"Custom Location","tags":["Custom 360","interior","6000x3000"],"initialView":{"yaw":0,"pitch":0,"fov":75},"fovLimits":{"min":30,"max":105},"createdAt":"2026-10-30","isCustomUpload":true,"hotspots":[{"id":"hs-1793390583014-a5jqst","type":"nav","title":"Portal to Salon","description":"","yaw":121,"pitch":2,"sourceSceneId":"pano-1793390413845-6ur8nwn","targetSceneId":"pano-1793390508648-399b8dq","targetSceneTitle":"Salon","color":"#10b981"}]},{"id":"pano-1793390508648-399b8dq","title":"Salon","category":"interior","description":"Custom uploaded 360° equirectangular render.","url":"./panoramas/2-salon.jpg","thumbUrl":"./panoramas/2-salon.jpg","resolution":{"width":6000,"height":3000},"aspectRatio":2,"fileSize":"7.39 MB","format":"jpg","author":"Custom Creator","location":"Custom Location","tags":["Custom 360","interior","6000x3000"],"initialView":{"yaw":0,"pitch":0,"fov":75},"fovLimits":{"min":30,"max":105},"createdAt":"2026-10-30","isCustomUpload":true,"hotspots":[{"id":"hs-1793390563944-yoitcq","type":"nav","title":"Portal to Bedroom","description":"","yaw":113,"pitch":-2,"sourceSceneId":"pano-1793390508648-399b8dq","targetSceneId":"pano-1793390413845-6ur8nwn","targetSceneTitle":"Bedroom","color":"#10b981"}]}],"exportedAt":"2026-10-30T20:04:15.581Z","generator":"360° Panorama Viewer & Virtual Tour Builder"};
+  </script>
+
+  <!-- Standalone WebGL Viewer Engine -->
+  <script type="module">
+    const escapeHtml = window.escapeHtml || function(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    // 1. Dynamic Safe Import of Three.js module
+    const threeModuleUrl = window.getAbsoluteAssetUrl('assets/three.module.min.js');
+    let THREE;
+    try {
+      THREE = await import(threeModuleUrl);
+    } catch (importErr) {
+      console.error('[Virtual Tour] Failed to load Three.js module from:', threeModuleUrl, importErr);
+      if (window.THREE) {
+        THREE = window.THREE;
+      } else {
+        window.showViewerErrorUI(
+          'Unable to Load 3D Engine',
+          'Failed to load assets/three.module.min.js from "' + threeModuleUrl + '".',
+          (importErr.message || '') + '\n\nPlease verify that all files from the ZIP export, including the assets folder (three.module.min.js and three.core.min.js), are uploaded to your server.'
+        );
+        throw importErr;
+      }
+    }
+
+    // 2. Load external tour-data.json if available, or fall back to embedded data
+    let tourData = window.__STATIC_TOUR_DATA__ || { scenes: [] };
+    try {
+      const jsonUrl = window.getAbsoluteAssetUrl('tour-data.json');
+      const res = await fetch(jsonUrl, { cache: 'no-cache' });
+      if (res.ok) {
+        const parsed = await res.json();
+        if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length > 0) {
+          tourData = parsed;
+          console.log('[Virtual Tour] Loaded external tour-data.json with ' + tourData.scenes.length + ' scenes.');
+        }
+      } else {
+        console.warn('[Virtual Tour] fetch tour-data.json returned status:', res.status, '- using embedded data');
+      }
+    } catch (fetchErr) {
+      console.warn('[Virtual Tour] External tour-data.json not loaded, using embedded fallback data:', fetchErr);
+    }
+
+    // 3. Verify scenes existence
+    if (!tourData.scenes || tourData.scenes.length === 0) {
+      window.showViewerErrorUI(
+        'No Scenes Available',
+        'This virtual tour has no panorama scenes defined in tour-data.json.',
+        'Please verify your tour configuration.'
+      );
+      throw new Error('No scenes found in tour data');
+    }
+
+    // 4. Select starting scene AFTER tour data is fully resolved
+    let currentSceneId = tourData.startingSceneId;
+    if (!currentSceneId || !tourData.scenes.some(s => s.id === currentSceneId)) {
+      currentSceneId = tourData.scenes[0].id;
+    }
+
+    // 5. Merge Viewer Configuration
+    let config = {
+      exposure: 1.0,
+      autoRotate: false,
+      autoRotateSpeed: 1.5,
+      fov: 75,
+      minFov: 30,
+      maxFov: 105,
+      pitchLimits: [-85, 85],
+      ...(tourData.config || {})
+    };
+
+    // UI Elements
+    const container = document.getElementById('viewport');
+    let width = container.clientWidth || window.innerWidth;
+    let height = container.clientHeight || window.innerHeight;
+
+    const currentSceneNameEl = document.getElementById('current-scene-name');
+    const sceneCounterEl = document.getElementById('scene-counter');
+    const roomsBtnLabel = document.getElementById('rooms-btn-label');
+    const roomsListEl = document.getElementById('rooms-list');
+    const roomsDrawerEl = document.getElementById('rooms-drawer');
+    const btnRooms = document.getElementById('btn-rooms');
+    const btnCloseDrawer = document.getElementById('btn-close-drawer');
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    const btnBrightness = document.getElementById('btn-brightness');
+    const brightnessPopover = document.getElementById('brightness-popover');
+    const exposureSlider = document.getElementById('exposure-slider');
+    const exposureVal = document.getElementById('exposure-val');
+    const btnResetExposure = document.getElementById('btn-reset-exposure');
+    const btnRotate = document.getElementById('btn-rotate');
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    const compassNeedle = document.getElementById('compass-needle');
+    const hotspotModal = document.getElementById('hotspot-modal');
+    const hotspotModalTitle = document.getElementById('hotspot-modal-title');
+    const hotspotModalDesc = document.getElementById('hotspot-modal-desc');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+    const transitionOverlay = document.getElementById('transition-overlay');
+    const transitionText = document.getElementById('transition-text');
+    const btnErrorRetry = document.getElementById('btn-error-retry');
+    const btnErrorDismiss = document.getElementById('btn-error-dismiss');
+
+    if (roomsBtnLabel) roomsBtnLabel.textContent = 'Rooms (' + tourData.scenes.length + ')';
+
+    // 6. Three.js Scene, Camera, WebGLRenderer
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(config.fov, width / height, 0.1, 1100);
+
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height);
+      renderer.toneMapping = THREE.NoToneMapping;
+      if (THREE.SRGBColorSpace) {
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+      }
+      container.appendChild(renderer.domElement);
+    } catch (webglErr) {
+      console.error('[Virtual Tour] WebGLRenderer creation failed:', webglErr);
+      window.showViewerErrorUI(
+        'WebGL Not Available',
+        'WebGL 3D graphics could not be initialized in your browser.',
+        (webglErr.message || '') + '\n\nPlease verify that hardware acceleration is enabled in your browser settings.'
+      );
+      throw webglErr;
+    }
+
+    // 7. Inverted Sphere Mesh
+    const sphereGeo = new THREE.SphereGeometry(500, 96, 64);
+    sphereGeo.scale(-1, 1, 1);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide });
+    const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    scene.add(sphereMesh);
+
+    // 8. Hotspots Group
+    const hotspotsGroup = new THREE.Group();
+    scene.add(hotspotsGroup);
+    const hotspotObjects = new Map();
+    const pulsingMeshes = [];
+
+    // Camera Orbit State
+    let currentYaw = 0;
+    let currentPitch = 0;
+    let targetYaw = 0;
+    let targetPitch = 0;
+    let currentFov = config.fov;
+    let targetFov = config.fov;
+
+    let isPointerDown = false;
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let previousPointerX = 0;
+    let previousPointerY = 0;
+    let pointerStartTime = 0;
+    let isPinching = false;
+    let touchStartDist = 0;
+    let lastInteractionTime = Date.now();
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const textureLoader = new THREE.TextureLoader();
+    const textureCache = new Map();
+
+    function applyExposure() {
+      const exp = Math.max(0.4, Math.min(2.2, config.exposure || 1.0));
+      sphereMat.color.setRGB(exp, exp, exp);
+      sphereMat.needsUpdate = true;
+      if (exposureSlider) exposureSlider.value = exp;
+      if (exposureVal) exposureVal.textContent = exp.toFixed(2) + 'x';
+    }
+
+    function createHotspotTexture(hs) {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const center = size / 2;
+      const color = hs.color || (hs.type === 'nav' ? '#10b981' : '#38bdf8');
+
+      ctx.beginPath();
+      ctx.arc(center, center, 44, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#ffffff';
+
+      if (hs.type === 'nav') {
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(center - 14, center - 2);
+        ctx.lineTo(center, center - 16);
+        ctx.lineTo(center + 14, center - 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(center - 14, center + 12);
+        ctx.lineTo(center, center - 2);
+        ctx.lineTo(center + 14, center + 12);
+        ctx.stroke();
+      } else {
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('i', center, center);
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function renderHotspots(hotspots) {
+      while (hotspotsGroup.children.length > 0) {
+        hotspotsGroup.remove(hotspotsGroup.children[0]);
+      }
+      hotspotObjects.clear();
+      pulsingMeshes.length = 0;
+
+      if (!hotspots || !hotspots.length) return;
+
+      hotspots.forEach((hs) => {
+        const radius = 480;
+        const phi = THREE.MathUtils.degToRad(90 - (hs.pitch || 0));
+        const theta = THREE.MathUtils.degToRad((hs.yaw || 0) + 180);
+
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.cos(phi);
+        const z = radius * Math.sin(phi) * Math.sin(theta);
+
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+        group.lookAt(0, 0, 0);
+
+        const tex = createHotspotTexture(hs);
+        const planeGeo = new THREE.PlaneGeometry(38, 38);
+        const planeMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthTest: false, toneMapped: false });
+        const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+        planeMesh.renderOrder = 999;
+        group.add(planeMesh);
+
+        if (hs.type === 'nav') {
+          const ringGeo = new THREE.RingGeometry(22, 27, 32);
+          const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthTest: false, toneMapped: false });
+          const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+          ringMesh.renderOrder = 998;
+          group.add(ringMesh);
+          pulsingMeshes.push(ringMesh);
+        }
+
+        const hitGeo = new THREE.CircleGeometry(30, 16);
+        const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthTest: false });
+        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+        hitMesh.renderOrder = 1000;
+        group.add(hitMesh);
+
+        hotspotsGroup.add(group);
+        hotspotObjects.set(hitMesh, hs);
+      });
+    }
+
+    /**
+     * Robust texture loader with fallback for CORS cache collisions on shared hosting
+     */
+    function loadPanoramaTexture(sceneItem, onLoaded, onError) {
+      const rawUrl = sceneItem.url;
+      const resolvedUrl = window.getAbsoluteAssetUrl(rawUrl);
+      let isDone = false;
+
+      // 1. Try THREE.TextureLoader
+      textureLoader.load(
+        resolvedUrl,
+        (tex) => {
+          if (isDone) return;
+          isDone = true;
+          onLoaded(tex);
+        },
+        undefined,
+        (loaderErr) => {
+          console.warn('[Virtual Tour] TextureLoader error for:', resolvedUrl, 'Trying HTMLImageElement fallback...', loaderErr);
+          
+          // 2. Fallback: load directly via HTMLImageElement
+          const img = new Image();
+          const isCross = (resolvedUrl.indexOf('http://') === 0 || resolvedUrl.indexOf('https://') === 0 || resolvedUrl.indexOf('//') === 0) &&
+            resolvedUrl.indexOf(window.location.origin) !== 0;
+          if (isCross) {
+            img.crossOrigin = 'anonymous';
+          }
+          img.onload = () => {
+            if (isDone) return;
+            isDone = true;
+            try {
+              const tex = new THREE.Texture(img);
+              tex.needsUpdate = true;
+              onLoaded(tex);
+            } catch (canvasErr) {
+              onError(canvasErr, resolvedUrl);
+            }
+          };
+          img.onerror = (imgErr) => {
+            if (isDone) return;
+            isDone = true;
+            console.error('[Virtual Tour] Fallback image load also failed for:', resolvedUrl, imgErr);
+            onError(
+              new Error('Could not load panorama image from "' + rawUrl + '". Please verify that the image exists at "' + resolvedUrl + '".'),
+              resolvedUrl
+            );
+          };
+          img.src = resolvedUrl;
+        }
+      );
+    }
+
+    function loadScene(sceneId, smoothTransition = true) {
+      window.hideViewerErrorUI();
+      const targetScene = tourData.scenes.find((s) => s.id === sceneId) || tourData.scenes[0];
+      if (!targetScene) {
+        window.showViewerErrorUI('Scene Not Found', 'Could not find requested scene ID: ' + sceneId);
+        return;
+      }
+
+      currentSceneId = targetScene.id;
+      if (currentSceneNameEl) currentSceneNameEl.textContent = targetScene.title || 'Scene';
+      const idx = tourData.scenes.findIndex((s) => s.id === currentSceneId);
+      if (sceneCounterEl) sceneCounterEl.textContent = 'Scene ' + (idx + 1) + ' of ' + tourData.scenes.length;
+
+      updateRoomsDrawer();
+
+      if (smoothTransition) {
+        if (transitionText) transitionText.textContent = targetScene.title || 'Loading Scene...';
+        if (transitionOverlay) transitionOverlay.classList.add('active');
+      }
+
+      const finishLoad = (texture) => {
+        try {
+          if (THREE.SRGBColorSpace) {
+            texture.colorSpace = THREE.SRGBColorSpace;
+          }
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          sphereMat.map = texture;
+          sphereMat.needsUpdate = true;
+          applyExposure();
+
+          renderHotspots(targetScene.hotspots || []);
+
+          if (targetScene.initialView) {
+            targetYaw = targetScene.initialView.yaw || 0;
+            targetPitch = targetScene.initialView.pitch || 0;
+            targetFov = targetScene.initialView.fov || 75;
+            currentYaw = targetYaw;
+            currentPitch = targetPitch;
+            currentFov = targetFov;
+          }
+
+          setTimeout(() => {
+            if (transitionOverlay) transitionOverlay.classList.remove('active');
+          }, 150);
+        } catch (finishErr) {
+          console.error('[Virtual Tour] Error applying scene texture to sphere:', finishErr);
+          window.showViewerErrorUI('Rendering Error', 'Failed to render panorama on 3D sphere.', finishErr.message);
+        }
+      };
+
+      if (textureCache.has(targetScene.url)) {
+        finishLoad(textureCache.get(targetScene.url));
+      } else {
+        loadPanoramaTexture(
+          targetScene,
+          (tex) => {
+            textureCache.set(targetScene.url, tex);
+            finishLoad(tex);
+          },
+          (err, resolvedUrl) => {
+            if (transitionOverlay) transitionOverlay.classList.remove('active');
+            window.showViewerErrorUI(
+              'Unable to Load Panorama',
+              'Failed to load image for scene "' + targetScene.title + '".',
+              'Attempted path: ' + targetScene.url + '\nResolved URL: ' + resolvedUrl + '\n\nPlease verify that the file exists in the "panoramas" directory.'
+            );
+          }
+        );
+      }
+    }
+
+    function updateRoomsDrawer() {
+      if (!roomsListEl) return;
+      roomsListEl.innerHTML = '';
+      tourData.scenes.forEach((s, idx) => {
+        const isActive = s.id === currentSceneId;
+        const card = document.createElement('div');
+        card.className = 'room-card' + (isActive ? ' active' : '');
+        const thumbUrl = window.getAbsoluteAssetUrl(s.thumbUrl || s.url);
+        card.innerHTML = `
+          <img src="${escapeHtml(thumbUrl)}" class="room-thumb" alt="${escapeHtml(s.title || 'Scene')}" loading="lazy">
+          <div class="room-name">${idx + 1}. ${escapeHtml(s.title || 'Scene')}</div>
+        `;
+        card.onclick = () => {
+          loadScene(s.id);
+          roomsDrawerEl.classList.remove('open');
+        };
+        roomsListEl.appendChild(card);
+      });
+    }
+
+    // Pointer & Touch Drag Interactions
+    let activePointerType = 'mouse';
+    let initialPinchFov = config.fov;
+
+    function onPointerDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      isPointerDown = true;
+      activePointerType = e.pointerType || 'mouse';
+      pointerStartX = e.clientX;
+      pointerStartY = e.clientY;
+      previousPointerX = e.clientX;
+      previousPointerY = e.clientY;
+      pointerStartTime = Date.now();
+      lastInteractionTime = Date.now();
+
+      if (e.pointerId && container.setPointerCapture) {
+        try {
+          container.setPointerCapture(e.pointerId);
+        } catch (err) {}
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isPointerDown || isPinching) {
+        if (!isPointerDown) checkHover(e.clientX, e.clientY);
+        return;
+      }
+      const deltaX = e.clientX - previousPointerX;
+      const deltaY = e.clientY - previousPointerY;
+      previousPointerX = e.clientX;
+      previousPointerY = e.clientY;
+
+      const isTouch = activePointerType === 'touch' || e.pointerType === 'touch';
+      // Touch sensitivity: 2.2x multiplier makes mobile finger swipes responsive and natural.
+      // Desktop mouse sensitivity: preserved at 1.0x desktop precision.
+      const touchSens = (config.touchSensitivity || 1.0) * 2.2;
+      const mouseSens = (config.mouseSensitivity || 1.0);
+      const sensitivity = isTouch ? touchSens : mouseSens;
+
+      const aspect = camera.aspect || (width / height);
+      const hFov = currentFov * Math.max(1, aspect);
+
+      targetYaw -= (deltaX / width) * hFov * sensitivity;
+      targetPitch += (deltaY / height) * currentFov * sensitivity;
+      targetPitch = Math.max(config.pitchLimits[0], Math.min(config.pitchLimits[1], targetPitch));
+      lastInteractionTime = Date.now();
+    }
+
+    function onPointerUp(e) {
+      if (e && e.pointerId && container.releasePointerCapture) {
+        try {
+          container.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+      }
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      const dist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
+      if (dist < 20 && Date.now() - pointerStartTime < 500) {
+        handleClick(e.clientX, e.clientY);
+      }
+    }
+
+    function checkHover(clientX, clientY) {
+      mouse.x = (clientX / width) * 2 - 1;
+      mouse.y = -(clientY / height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(Array.from(hotspotObjects.keys()));
+      container.style.cursor = hits.length > 0 ? 'pointer' : 'grab';
+    }
+
+    function handleClick(clientX, clientY) {
+      mouse.x = (clientX / width) * 2 - 1;
+      mouse.y = -(clientY / height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(Array.from(hotspotObjects.keys()));
+      if (hits.length > 0) {
+        const hs = hotspotObjects.get(hits[0].object);
+        if (!hs) return;
+        if (hs.type === 'nav' && hs.targetSceneId) {
+          loadScene(hs.targetSceneId);
+        } else {
+          hotspotModalTitle.textContent = hs.title || 'Information Hotspot';
+          hotspotModalDesc.textContent = hs.description || 'No additional details available.';
+          hotspotModal.style.display = 'block';
+        }
+      }
+    }
+
+    // Touch & Multi-Touch Gestures
+    container.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length >= 2) {
+        isPinching = true;
+        isPointerDown = false;
+        touchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialPinchFov = currentFov;
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchmove', (e) => {
+      if (e.touches.length >= 2 && isPinching) {
+        e.preventDefault();
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (touchStartDist > 0 && currentDist > 0) {
+          const pinchRatio = touchStartDist / currentDist;
+          targetFov = Math.max(config.minFov, Math.min(config.maxFov, initialPinchFov * pinchRatio));
+          lastInteractionTime = Date.now();
+        }
+      } else if (e.touches.length === 1 && !isPinching) {
+        // Prevent outer page scrolling while swiping over the 360 viewer canvas
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        isPinching = false;
+      }
+    });
+    container.addEventListener('touchcancel', () => {
+      isPinching = false;
+    });
+
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      targetFov = Math.max(config.minFov, Math.min(config.maxFov, targetFov + (e.deltaY > 0 ? 4 : -4)));
+      lastInteractionTime = Date.now();
+    }, { passive: false });
+
+    // UI Bindings
+    if (btnRooms) btnRooms.onclick = () => roomsDrawerEl.classList.toggle('open');
+    if (btnCloseDrawer) btnCloseDrawer.onclick = () => roomsDrawerEl.classList.remove('open');
+    if (btnCloseModal) btnCloseModal.onclick = () => hotspotModal.style.display = 'none';
+
+    if (btnFullscreen) {
+      btnFullscreen.onclick = () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      };
+    }
+
+    if (btnBrightness) {
+      btnBrightness.onclick = () => {
+        brightnessPopover.style.display = brightnessPopover.style.display === 'flex' ? 'none' : 'flex';
+        btnBrightness.classList.toggle('active');
+      };
+    }
+    if (exposureSlider) {
+      exposureSlider.oninput = (e) => {
+        config.exposure = parseFloat(e.target.value);
+        applyExposure();
+      };
+    }
+    if (btnResetExposure) {
+      btnResetExposure.onclick = () => {
+        config.exposure = 1.0;
+        applyExposure();
+      };
+    }
+
+    if (btnRotate) {
+      btnRotate.onclick = () => {
+        config.autoRotate = !config.autoRotate;
+        btnRotate.classList.toggle('active', config.autoRotate);
+      };
+    }
+
+    if (btnZoomIn) {
+      btnZoomIn.onclick = () => {
+        targetFov = Math.max(config.minFov, targetFov - 10);
+        lastInteractionTime = Date.now();
+      };
+    }
+    if (btnZoomOut) {
+      btnZoomOut.onclick = () => {
+        targetFov = Math.min(config.maxFov, targetFov + 10);
+        lastInteractionTime = Date.now();
+      };
+    }
+
+    if (btnErrorRetry) {
+      btnErrorRetry.onclick = () => {
+        window.hideViewerErrorUI();
+        loadScene(currentSceneId, true);
+      };
+    }
+    if (btnErrorDismiss) {
+      btnErrorDismiss.onclick = () => {
+        window.hideViewerErrorUI();
+      };
+    }
+
+    // Responsive Canvas & Dimension Sizing
+    function updateDimensions() {
+      const rect = container.getBoundingClientRect();
+      width = Math.max(1, rect.width || container.clientWidth || window.innerWidth);
+      height = Math.max(1, rect.height || container.clientHeight || window.innerHeight);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      if (renderer) {
+        renderer.setSize(width, height, false);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      }
+    }
+
+    window.addEventListener('resize', updateDimensions);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(updateDimensions, 100);
+      setTimeout(updateDimensions, 300);
+    });
+
+    if (window.ResizeObserver) {
+      const resizeObserver = new ResizeObserver(() => {
+        updateDimensions();
+      });
+      resizeObserver.observe(container);
+    }
+
+    // Render Loop
+    let lastTime = performance.now();
+    function animate(time) {
+      requestAnimationFrame(animate);
+      const delta = (time - lastTime) / 1000;
+      lastTime = time;
+
+      // Auto-rotation
+      if (config.autoRotate && !isPointerDown && (Date.now() - lastInteractionTime > 3000)) {
+        targetYaw += config.autoRotateSpeed * delta * 4;
+      }
+
+      // Smooth inertia damping
+      currentYaw += (targetYaw - currentYaw) * 0.1;
+      currentPitch += (targetPitch - currentPitch) * 0.1;
+      currentFov += (targetFov - currentFov) * 0.1;
+
+      camera.fov = currentFov;
+      camera.updateProjectionMatrix();
+
+      const phi = THREE.MathUtils.degToRad(90 - currentPitch);
+      const theta = THREE.MathUtils.degToRad(currentYaw + 180);
+      const target = new THREE.Vector3(
+        500 * Math.sin(phi) * Math.cos(theta),
+        500 * Math.cos(phi),
+        500 * Math.sin(phi) * Math.sin(theta)
+      );
+      camera.lookAt(target);
+
+      // Pulse portal halo rings
+      const pulse = 1 + Math.sin(time * 0.005) * 0.12;
+      for (const mesh of pulsingMeshes) {
+        mesh.scale.set(pulse, pulse, pulse);
+      }
+
+      // Update Compass Needle
+      if (compassNeedle) {
+        compassNeedle.style.transform = 'rotate(' + (-currentYaw) + 'deg)';
+      }
+
+      if (renderer) {
+        renderer.render(scene, camera);
+      }
+    }
+
+    // Start Viewer
+    loadScene(currentSceneId, false);
+    applyExposure();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

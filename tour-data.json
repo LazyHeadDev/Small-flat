@@ -1,0 +1,125 @@
+{
+  "id": "tour-amalfi-luxury",
+  "slug": "amalfi-coastal-villa-tour",
+  "title": "Modern Minimalist Coastal Villa & Penthouse",
+  "description": "",
+  "author": "Architectural Studio",
+  "location": "",
+  "startingSceneId": "pano-1793390413845-6ur8nwn",
+  "config": {
+    "autoRotate": false,
+    "autoRotateSpeed": 1.5,
+    "fov": 75,
+    "minFov": 30,
+    "maxFov": 105,
+    "pitchLimits": [
+      -85,
+      85
+    ],
+    "mouseSensitivity": 1,
+    "touchSensitivity": 1,
+    "exposure": 1,
+    "toneMapping": "none",
+    "showCompass": true,
+    "showHotspots": true,
+    "isInitialized": true
+  },
+  "scenes": [
+    {
+      "id": "pano-1793390413845-6ur8nwn",
+      "title": "Bedroom",
+      "category": "interior",
+      "description": "Custom uploaded 360° equirectangular render.",
+      "url": "./panoramas/1-bedroom.jpg",
+      "thumbUrl": "./panoramas/1-bedroom.jpg",
+      "resolution": {
+        "width": 6000,
+        "height": 3000
+      },
+      "aspectRatio": 2,
+      "fileSize": "7.66 MB",
+      "format": "jpg",
+      "author": "Custom Creator",
+      "location": "Custom Location",
+      "tags": [
+        "Custom 360",
+        "interior",
+        "6000x3000"
+      ],
+      "initialView": {
+        "yaw": 0,
+        "pitch": 0,
+        "fov": 75
+      },
+      "fovLimits": {
+        "min": 30,
+        "max": 105
+      },
+      "createdAt": "2026-10-30",
+      "isCustomUpload": true,
+      "hotspots": [
+        {
+          "id": "hs-1793390583014-a5jqst",
+          "type": "nav",
+          "title": "Portal to Salon",
+          "description": "",
+          "yaw": 121,
+          "pitch": 2,
+          "sourceSceneId": "pano-1793390413845-6ur8nwn",
+          "targetSceneId": "pano-1793390508648-399b8dq",
+          "targetSceneTitle": "Salon",
+          "color": "#10b981"
+        }
+      ]
+    },
+    {
+      "id": "pano-1793390508648-399b8dq",
+      "title": "Salon",
+      "category": "interior",
+      "description": "Custom uploaded 360° equirectangular render.",
+      "url": "./panoramas/2-salon.jpg",
+      "thumbUrl": "./panoramas/2-salon.jpg",
+      "resolution": {
+        "width": 6000,
+        "height": 3000
+      },
+      "aspectRatio": 2,
+      "fileSize": "7.39 MB",
+      "format": "jpg",
+      "author": "Custom Creator",
+      "location": "Custom Location",
+      "tags": [
+        "Custom 360",
+        "interior",
+        "6000x3000"
+      ],
+      "initialView": {
+        "yaw": 0,
+        "pitch": 0,
+        "fov": 75
+      },
+      "fovLimits": {
+        "min": 30,
+        "max": 105
+      },
+      "createdAt": "2026-10-30",
+      "isCustomUpload": true,
+      "hotspots": [
+        {
+          "id": "hs-1793390563944-yoitcq",
+          "type": "nav",
+          "title": "Portal to Bedroom",
+          "description": "",
+          "yaw": 113,
+          "pitch": -2,
+          "sourceSceneId": "pano-1793390508648-399b8dq",
+          "targetSceneId": "pano-1793390413845-6ur8nwn",
+          "targetSceneTitle": "Bedroom",
+          "color": "#10b981"
+        }
+      ]
+    }
+  ],
+  "exportedAt": "2026-10-30T20:04:15.581Z",
+  "generator": "360° Panorama Viewer & Virtual Tour Builder"
+}
